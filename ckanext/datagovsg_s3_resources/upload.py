@@ -214,3 +214,18 @@ class S3ResourceUploader(BaseS3Uploader):
             resource['created'] = timestamp
         else:
             resource['last_modified'] = timestamp
+
+    @staticmethod
+    def config_exists():
+        """config_exists - checks for the required s3 config options"""
+        access_key = config.get(
+            'ckan.datagovsg_s3_resources.s3_aws_access_key_id')
+        secret_key = config.get(
+            'ckan.datagovsg_s3_resources.s3_aws_secret_access_key')
+        bucket_name = config.get('ckan.datagovsg_s3_resources.s3_bucket_name')
+        url = config.get('ckan.datagovsg_s3_resources.s3_url_prefix')
+
+        return not (access_key is None or
+                    secret_key is None or
+                    bucket_name is None or
+                    url is None)

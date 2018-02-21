@@ -5,21 +5,24 @@ Extends plugins.SingletonPlugin
 '''
 
 import logging
-import datetime
 import ckan.plugins as plugins
 from routes.mapper import SubMapper
-import ckanext.datagovsg_s3_resources.upload as upload
+from ckanext.datagovsg_s3_resources.upload import S3ResourceUploader
+from ckan.common import _, request, c, response
+import ckan.logic as logic
+
+get_action = logic.get_action
 
 
 class DatagovsgS3ResourcesPlugin(plugins.SingletonPlugin):
-    '''
+    """
     DatagovsgS3ResourcesPlugin
     Extends plugins.SingletonPlugin
 
     1. Connects package and resource download routes
     2. Hooks into before_create, before_update to upload resource to S3
     3. Hooks into after_create, after_update to upload resource zipfile to S3
-    '''
+    """
 
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IRoutes, inherit=True)
@@ -28,8 +31,11 @@ class DatagovsgS3ResourcesPlugin(plugins.SingletonPlugin):
     # IRoutes ####################################################
     ##############################################################
 
+    def __init__(self):
+        self.s3Uploader = S3ResourceUploader()
+
     def before_map(self, map):
-        '''Connect our package controller to resource download action'''
+        """Connect our package controller to resource download action"""
         m = SubMapper(
             map,
             controller='ckanext.datagovsg_s3_resources.controllers.package:\
@@ -53,7 +59,7 @@ class DatagovsgS3ResourcesPlugin(plugins.SingletonPlugin):
         '''
 
         # Check if required config options exist
-        if not upload.config_exists():
+        if not self.s3Uploader.config_exists():
             # Log an error
             logger = logging.getLogger(__name__)
             logger.error("Required S3 config options missing. Please check if required config options exist.")
@@ -63,8 +69,8 @@ class DatagovsgS3ResourcesPlugin(plugins.SingletonPlugin):
             if resource.get('format') == 'API':
                 return
             # Only upload to S3 if not blacklisted
-            elif not upload.is_blacklisted(resource):
-                upload.upload_resource_to_s3(context, resource)
+            elif not S3ResourceUploader.is_blacklisted(resource):
+                self.s3Uploader.upload_resource(context, resource)
             else:
                 # If blacklisted, the resource file is uploaded to CKAN.
                 # 
@@ -87,42 +93,54 @@ class DatagovsgS3ResourcesPlugin(plugins.SingletonPlugin):
                 logger.info("Resource %s from package %s is blacklisted and not uploaded to S3." % (resource['name'], resource['package_id']))
 
     def after_create_or_update(self, context, resource):
-        '''Uploads resource zip file to S3
-        Done after create/update instead of before to ensure metadata is generated correctly'''
-        upload.upload_resource_zipfile_to_s3(context, resource)
+        """
+        Sanity check to make sure file was uploadedDone after create/update
+        instead of before to ensure metadata is generated correctly
+        """
+        self.s3Uploader.upload_resource(context, resource)
 
-        # Remove 'resource_create_or_update' in context. See documentation in 'before_create_or_update'
-        # for more details
-        if 'resource_create_or_update' in context and upload.config_exists():
+        # Remove 'resource_create_or_update' in context. See documentation in
+        #  'before_create_or_update' for more details
+
+        if 'resource_create_or_update' in context and self.s3Uploader.config_exists():
             context.pop('resource_create_or_update')
             pkg = plugins.toolkit.get_action('package_show')(data_dict={'id': resource['package_id']})
-            upload.upload_package_zipfile_to_s3(context, pkg)
+            self.s3Uploader.upload_resource(context, resource)
 
     def before_create(self, context, resource):
-        '''Runs before resource_create. Modifies resource destructively to put in the S3 URL'''
+        """
+        Runs before resource_create. Modifies resource destructively to
+        put in the S3 URL
+        """
         self.before_create_or_update(context, resource)
 
     def after_create(self, context, resource):
-        '''after_create - Runs after resource_create.'''
+        """after_create - Runs after resource_create."""
         self.after_create_or_update(context, resource)
 
     def before_update(self, context, _, resource):
-        '''Runs before resource_update. Modifies resource destructively to put in the S3 URL'''
+        """
+        Runs before resource_update. Modifies resource destructively to
+        put in the S3 URL
+        """
         self.before_create_or_update(context, resource)
 
     def after_update(self, context, resource):
-        '''after_update - Runs after resource_update.
-
-        Uploads resource zip to S3 and then manually pushes to datastore. Read documentation in
-        function for more details.'''
+        """
+        after_update - Runs after resource_update. Uploads resource zip to S3
+        and then manually pushes to datastore. Read documentation in
+        function for more details."""
         self.after_create_or_update(context, resource)
 
-        # Push data to datastore
-        # Unfortunately we have to do this here because datapusher currently runs on the
-        # IResourceUrlChange.notify hook which is getting passed as input the OLD resource
-        # When we update a resource, the datapusher trigger is receiving the old URL, and so
-        # we manually trigger the datapusher service after the resource has been updated.
+        """
+        Push data to datastore
+        Unfortunately we have to do this here because datapusher currently runs on the
+        IResourceUrlChange.notify hook which is getting passed as input the OLD resource
+        When we update a resource, the datapusher trigger is receiving the old URL, and so
+        we manually trigger the datapusher service after the resource has been updated.
+        """
+
         if plugins.plugin_loaded('datastore'):
-            plugins.toolkit.c.pkg_dict = plugins.toolkit.get_action('datapusher_submit')(
+            c.pkg_dict = get_action('datapusher_submit')(
                 None, {'resource_id': resource['id']}
             )
