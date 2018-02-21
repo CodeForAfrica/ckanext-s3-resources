@@ -37,7 +37,8 @@ class MigrateToS3(cli.CkanCommand):
             if self.args[0] == 'force_s3':
                 skip_existing_s3_upload = False
 
-        user = toolkit.get_action('get_site_user')({'model': model, 'ignore_auth': True}, {})
+        user = toolkit.get_action('get_site_user')(
+            {'model': model, 'ignore_auth': True}, {})
         context = {
             'ignore_auth': True
         }
@@ -52,13 +53,15 @@ class MigrateToS3(cli.CkanCommand):
         for package_name in package_names:
             self.migrate_package_to_s3(context, package_name)
 
-        logger.info("Package Crashes (1st round) = \n%s", self.pkg_crashes_w_error)
+        logger.info("Package Crashes (1st round) = \n%s",
+                    self.pkg_crashes_w_error)
         logger.info("Attempting to reupload the failed packages")
 
         pkg_crashes_w_error_first_round = copy.copy(self.pkg_crashes_w_error)
         self.pkg_crashes_w_error = []
         for package_name_and_error in pkg_crashes_w_error_first_round:
-            self.migrate_package_to_s3(context, package_name_and_error['pkg_name'])
+            self.migrate_package_to_s3(context,
+                                       package_name_and_error['pkg_name'])
 
         logger.info("Package Crashes = \n%s", self.pkg_crashes_w_error)
 
@@ -77,38 +80,53 @@ class MigrateToS3(cli.CkanCommand):
         '''
         # Obtain logger
         logger = logging.getLogger(__name__)
-        logger.info("Starting package migration to S3 for package %s", package_name)
+        logger.info("Starting package migration to S3 for package %s",
+                    package_name)
         try:
-            pkg = toolkit.get_action('package_show')(context, {'id': package_name})
+            pkg = toolkit.get_action('package_show')(context,
+                                                     {'id': package_name})
             if pkg.get('num_resources') > 0:
                 for resource in pkg.get('resources'):
                     # If the resource is already uploaded to S3, don't reupload
-                    if self.skip_existing_s3_upload and resource['url_type'] == 's3':
-                        logger.info("Resource %s is already on S3, skipping to next resource.", resource.get('name', ''))
+                    if self.skip_existing_s3_upload and resource[
+                        'url_type'] == 's3':
+                        logger.info(
+                            "Resource %s is already on S3, skipping to next resource.",
+                            resource.get('name', ''))
                         continue
 
                     # If filetype of resource is blacklisted, skip the upload to S3
                     if not upload.is_blacklisted(resource):
                         try:
-                            logger.info("Attempting to migrate resource %s to S3...", resource.get('name', ''))
+                            logger.info(
+                                "Attempting to migrate resource %s to S3...",
+                                resource.get('name', ''))
                             self.change_to_s3(context, resource)
-                            logger.info("Successfully migrated resource %s to S3.", resource.get('name', ''))
+                            logger.info(
+                                "Successfully migrated resource %s to S3.",
+                                resource.get('name', ''))
                         except Exception as error:
-                            logger.error("Error when migrating resource %s - %s", resource.get('name', ''), error)
+                            logger.error(
+                                "Error when migrating resource %s - %s",
+                                resource.get('name', ''), error)
                             raise error
                     else:
-                        logger.info("Resource %s is blacklisted, skipping to next resource.", resource.get('name', ''))
+                        logger.info(
+                            "Resource %s is blacklisted, skipping to next resource.",
+                            resource.get('name', ''))
 
                         # Upload resource zipfile to S3
                         # If not blacklisted, will be done automatically as part of resource_update.
                         upload.upload_resource_zipfile_to_s3(context, resource)
-                
+
                 # After updating all the resources, upload package zipfile to S3
                 upload.upload_package_zipfile_to_s3(context, pkg)
 
         except Exception as error:
-            logger.error("Error when migrating package %s with error %s", package_name, error)
-            self.pkg_crashes_w_error.append({'pkg_name': package_name, 'error': error})
+            logger.error("Error when migrating package %s with error %s",
+                         package_name, error)
+            self.pkg_crashes_w_error.append(
+                {'pkg_name': package_name, 'error': error})
         finally:
             # Cleanup sqlalchemy session
             # Required to prevent errors when uploading remaining packages

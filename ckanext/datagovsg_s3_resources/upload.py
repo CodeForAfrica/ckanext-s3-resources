@@ -32,9 +32,12 @@ def setup_s3_bucket():
     '''
     setup_s3_bucket - Grabs the required info from config file and initializes S3 connection
     '''
-    aws_access_key_id = config.get('ckan.datagovsg_s3_resources.s3_aws_access_key_id')
-    aws_secret_access_key = config.get('ckan.datagovsg_s3_resources.s3_aws_secret_access_key')
-    aws_region_name = config.get('ckan.datagovsg_s3_resources.s3_aws_region_name')
+    aws_access_key_id = config.get(
+        'ckan.datagovsg_s3_resources.s3_aws_access_key_id')
+    aws_secret_access_key = config.get(
+        'ckan.datagovsg_s3_resources.s3_aws_secret_access_key')
+    aws_region_name = config.get(
+        'ckan.datagovsg_s3_resources.s3_aws_region_name')
     if aws_region_name:
         s3 = boto3.resource('s3',
                             aws_access_key_id=aws_access_key_id,
@@ -63,7 +66,9 @@ def upload_resource_to_s3(context, resource):
 
     # Init logger
     logger = logging.getLogger(__name__)
-    logger.info("Starting upload_resource_to_s3 for resource %s" % resource.get('name', ''))
+    logger.info(
+        "Starting upload_resource_to_s3 for resource %s" % resource.get('name',
+                                                                        ''))
 
     # Init connection to S3
     bucket = setup_s3_bucket()
@@ -74,8 +79,9 @@ def upload_resource_to_s3(context, resource):
     extension = mimetypes.guess_extension(content_type)
 
     # Upload to S3
-    pkg = toolkit.get_action('package_show')(context, {'id': resource['package_id']})
-    timestamp = datetime.datetime.utcnow() # should match the assignment in the ResourceUpload class
+    pkg = toolkit.get_action('package_show')(context,
+                                             {'id': resource['package_id']})
+    timestamp = datetime.datetime.utcnow()  # should match the assignment in the ResourceUpload class
     # get resource name, if not known replace with random string
     resource_name = resource.get('name', str(uuid.uuid1()))
     s3_filepath = ('resources'
@@ -106,15 +112,19 @@ def upload_resource_to_s3(context, resource):
         try:
             # Start session to download files
             session = requests.Session()
-            logger.info("Attempting to obtain resource %s from url %s" % (resource.get('name',''), resource.get('url', '')))
+            logger.info("Attempting to obtain resource %s from url %s" % (
+            resource.get('name', ''), resource.get('url', '')))
             response = session.get(
                 resource.get('url', ''), timeout=30)
             # If the response status code is not 200 (i.e. success), raise Exception
             if response.status_code != 200:
-                logger.error("Error obtaining resource from the given URL. Response status code is %d" % response.status_code)
-                raise Exception("Error obtaining resource from the given URL. Response status code is %d" % response.status_code)
+                logger.error(
+                    "Error obtaining resource from the given URL. Response status code is %d" % response.status_code)
+                raise Exception(
+                    "Error obtaining resource from the given URL. Response status code is %d" % response.status_code)
             body = response.content
-            logger.info("Successfully obtained resource %s from url %s" % (resource.get('name',''), resource.get('url', '')))
+            logger.info("Successfully obtained resource %s from url %s" % (
+            resource.get('name', ''), resource.get('url', '')))
 
         except requests.exceptions.RequestException:
             toolkit.abort(404, toolkit._(
@@ -127,11 +137,14 @@ def upload_resource_to_s3(context, resource):
                                 Body=body,
                                 ContentType=content_type)
         obj.Acl().put(ACL='public-read')
-        logger.info("Successfully uploaded resource %s to S3" % resource.get('name', ''))
+        logger.info(
+            "Successfully uploaded resource %s to S3" % resource.get('name',
+                                                                     ''))
 
     except Exception as exception:
         # Log the error and reraise the exception
-        logger.error("Error uploading resource %s from package %s to S3" % (resource['name'], resource['package_id']))
+        logger.error("Error uploading resource %s from package %s to S3" % (
+        resource['name'], resource['package_id']))
         logger.error(exception)
         if resource.get('url_type') == 'upload':
             body.close()
@@ -146,7 +159,8 @@ def upload_resource_to_s3(context, resource):
     s3_url = config.get('ckan.datagovsg_s3_resources.s3_url_prefix')
     if not s3_url.endswith('/'):
         s3_url += '/'
-    resource['url'] = s3_url + config.get('ckan.datagovsg_s3_resources.s3_bucket_name') + '/' + s3_filepath
+    resource['url'] = s3_url + config.get(
+        'ckan.datagovsg_s3_resources.s3_bucket_name') + '/' + s3_filepath
     update_timestamp(resource, timestamp)
 
 
@@ -157,14 +171,17 @@ def upload_resource_zipfile_to_s3(context, resource):
 
     # Init logger
     logger = logging.getLogger(__name__)
-    logger.info("Starting upload_resource_zipfile_to_s3 for resource %s" % resource.get('name', ''))
-    
+    logger.info(
+        "Starting upload_resource_zipfile_to_s3 for resource %s" % resource.get(
+            'name', ''))
+
     # If resource is an API, skip upload
     if resource.get('format', '') == 'API':
         return
 
     # Get resource's package
-    pkg = toolkit.get_action('package_show')(context, {'id': resource['package_id']})
+    pkg = toolkit.get_action('package_show')(context,
+                                             {'id': resource['package_id']})
 
     # Initialize resource zip file
     resource_buff = StringIO.StringIO()
@@ -175,7 +192,7 @@ def upload_resource_zipfile_to_s3(context, resource):
         'package_show')(data_dict={'id': pkg['id']})
     metadata_yaml_buff = StringIO.StringIO()
     metadata_yaml_buff.write(unicode("# Metadata for %s\r\n" % pkg[
-                             "title"]).encode('ascii', 'ignore'))
+        "title"]).encode('ascii', 'ignore'))
     yaml.dump(prettify_json(metadata),
               metadata_yaml_buff, Dumper=MetadataYAMLDumper)
 
@@ -190,7 +207,9 @@ def upload_resource_zipfile_to_s3(context, resource):
 
     # Case 1: Resource is not on s3 yet, need to download from CKAN
     if resource.get('url_type') == 'upload':
-        logger.info("Obtaining resource file from CKAN for resource %s" % resource.get('name', ''))
+        logger.info(
+            "Obtaining resource file from CKAN for resource %s" % resource.get(
+                'name', ''))
         upload = uploader.ResourceUpload(resource)
         filepath = upload.get_path(resource['id'])
 
@@ -205,9 +224,13 @@ def upload_resource_zipfile_to_s3(context, resource):
             response = session.get(resource.get('url', ''), timeout=30)
             # If the response status code is not 200 (i.e. success), raise Exception
             if response.status_code != 200:
-                logger.error("Error obtaining resource from the given URL. Response status code is %d" % response.status_code)
-                raise Exception("Error obtaining resource from the given URL. Response status code is %d" % response.status_code)
-            logger.info("Successfully obtained file from URL %s" % resource.get('url', ''))
+                logger.error(
+                    "Error obtaining resource from the given URL. Response status code is %d" % response.status_code)
+                raise Exception(
+                    "Error obtaining resource from the given URL. Response status code is %d" % response.status_code)
+            logger.info(
+                "Successfully obtained file from URL %s" % resource.get('url',
+                                                                        ''))
         except requests.exceptions.RequestException:
             toolkit.abort(404, toolkit._('Resource data not found'))
 
@@ -219,14 +242,18 @@ def upload_resource_zipfile_to_s3(context, resource):
     # Upload the resource zip to S3
     resource_zip_archive.close()
     resource_name = resource.get('name', str(uuid.uuid1()))
-    resource_filename = ('resources'
+    resource_filename = ('archives'
+                         + 'compressed'
+                         + 'resources'
                          + '/'
                          + pkg.get('name')
                          + '/'
                          + slugify(resource.get('name'), to_lower=True)
                          + '.zip')
     try:
-        logger.info("Uploading resource zipfile to S3 for resource %s" % resource.get('name', ''))
+        logger.info(
+            "Uploading resource zipfile to S3 for resource %s" % resource.get(
+                'name', ''))
         obj = bucket.put_object(
             Key=resource_filename,
             Body=resource_buff.getvalue(),
@@ -234,12 +261,16 @@ def upload_resource_zipfile_to_s3(context, resource):
         )
         # Set permissions of the S3 object to be readable by public
         obj.Acl().put(ACL='public-read')
-        logger.info("Successfully uploaded resource zipfile to S3 for resource %s" % resource.get('name', ''))
+        logger.info(
+            "Successfully uploaded resource zipfile to S3 for resource %s" % resource.get(
+                'name', ''))
     except Exception as exception:
         # Log the error and reraise the exception
-        logger.error("Error uploading resource %s zipfile to S3" % (resource['name']))
+        logger.error(
+            "Error uploading resource %s zipfile to S3" % (resource['name']))
         logger.error(exception)
         raise exception
+
 
 def upload_package_zipfile_to_s3(context, pkg_dict):
     '''
@@ -253,7 +284,9 @@ def upload_package_zipfile_to_s3(context, pkg_dict):
 
     # Init logger
     logger = logging.getLogger(__name__)
-    logger.info("Starting upload_package_zipfile_to_S3 for package %s" % pkg.get('name', ''))
+    logger.info(
+        "Starting upload_package_zipfile_to_S3 for package %s" % pkg.get('name',
+                                                                         ''))
 
     # If all resources are APIs, don't upload the zipfile
     if resources_all_api(pkg.get('resources')):
@@ -271,7 +304,7 @@ def upload_package_zipfile_to_s3(context, pkg_dict):
     # Initialize metadata
     metadata_yaml_buff = StringIO.StringIO()
     metadata_yaml_buff.write(unicode("# Metadata for %s\r\n" % pkg[
-                             "title"]).encode('ascii', 'ignore'))
+        "title"]).encode('ascii', 'ignore'))
     yaml.dump(prettify_json(metadata),
               metadata_yaml_buff, Dumper=MetadataYAMLDumper)
 
@@ -293,7 +326,9 @@ def upload_package_zipfile_to_s3(context, pkg_dict):
             continue
         # Case 2: Resource is uploaded to CKAN server
         elif resource.get('url_type') == 'upload':
-            logger.info("Obtaining resource file from CKAN for resource %s" % resource.get('name', ''))
+            logger.info(
+                "Obtaining resource file from CKAN for resource %s" % resource.get(
+                    'name', ''))
             upload = uploader.ResourceUpload(resource)
             filepath = upload.get_path(resource['id'])
             package_zip_archive.write(filepath, filename)
@@ -302,30 +337,38 @@ def upload_package_zipfile_to_s3(context, pkg_dict):
         else:
             # Try to download the resource from the resource URL
             try:
-                logger.info("Obtaining file from URL %s" % resource.get('url', ''))
+                logger.info(
+                    "Obtaining file from URL %s" % resource.get('url', ''))
                 response = session.get(resource.get('url', ''), timeout=30)
                 # If the response status code is not 200 (i.e. success), raise Exception
                 if response.status_code != 200:
-                    logger.error("Error obtaining resource from the given URL. Response status code is %d" % response.status_code)
-                    raise Exception("Error obtaining resource from the given URL. Response status code is %d" % response.status_code)
-                logger.info("Successfully obtained file from URL %s" % resource.get('url', ''))
+                    logger.error(
+                        "Error obtaining resource from the given URL. Response status code is %d" % response.status_code)
+                    raise Exception(
+                        "Error obtaining resource from the given URL. Response status code is %d" % response.status_code)
+                logger.info(
+                    "Successfully obtained file from URL %s" % resource.get(
+                        'url', ''))
             except requests.exceptions.RequestException:
                 toolkit.abort(404, toolkit._('Resource data not found'))
 
             package_zip_archive.writestr(filename, response.content)
-
 
     # Initialize connection to S3
     bucket = setup_s3_bucket()
 
     # Upload package zip to S3
     package_zip_archive.close()
-    package_file_name = (pkg.get('name')
+    package_file_name = ('archives'
+                         + '/'
+                         + pkg.get('name')
                          + '/'
                          + pkg.get('name')
                          + '.zip')
     try:
-        logger.info("Uploading package zipfile to S3 for package %s" % pkg.get('name', ''))
+        logger.info(
+            "Uploading package zipfile to S3 for package %s" % pkg.get('name',
+                                                                       ''))
         obj = bucket.put_object(
             Key=package_file_name,
             Body=package_buff.getvalue(),
@@ -333,12 +376,15 @@ def upload_package_zipfile_to_s3(context, pkg_dict):
         )
         # Set object permissions to public readable
         obj.Acl().put(ACL='public-read')
-        logger.info("Successfully uploaded package zipfile to S3 for package %s" % pkg.get('name', ''))
+        logger.info(
+            "Successfully uploaded package zipfile to S3 for package %s" % pkg.get(
+                'name', ''))
     except Exception as exception:
         # Log the error and reraise the exception
         logger.error("Error uploading package %s zip to S3" % (pkg['id']))
         logger.error(exception)
         raise exception
+
 
 def resources_all_api(resources):
     for resource in resources:
@@ -346,9 +392,11 @@ def resources_all_api(resources):
             return False
     return True
 
+
 def is_blacklisted(resource):
     '''is_blacklisted - Check if the resource type is blacklisted'''
-    blacklist = config.get('ckan.datagovsg_s3_resources.upload_filetype_blacklist', '').split()
+    blacklist = config.get(
+        'ckan.datagovsg_s3_resources.upload_filetype_blacklist', '').split()
     blacklist = [t.lower() for t in blacklist]
     resource_format = resource.get('format', '').lower()
     # If resource is being created, format will still be empty. Use file extension instead
@@ -357,11 +405,13 @@ def is_blacklisted(resource):
         resource_format = file_ext[1:].lower()
     return resource_format in blacklist
 
+
 def update_timestamp(resource, timestamp):
     '''use the last modified time if it exists, otherwise use the created time.
 
     destructively modifies resource'''
-    if resource.get('last_modified') is None and resource.get('created') is None:
+    if resource.get('last_modified') is None and resource.get(
+            'created') is None:
         resource['created'] = timestamp
     else:
         resource['last_modified'] = timestamp
@@ -373,6 +423,7 @@ class MetadataYAMLDumper(yaml.SafeDumper):
 
     Used to generate metadata for the CKAN resources/packages
     '''
+
     def __init__(self, *args, **kws):
         kws['default_flow_style'] = False
         kws['explicit_start'] = True
@@ -420,6 +471,7 @@ class MetadataYAMLDumper(yaml.SafeDumper):
             return None
         return "'"
 
+
 MetadataYAMLDumper.add_representer(
     collections.OrderedDict, MetadataYAMLDumper.represent_odict)
 
@@ -451,7 +503,8 @@ def is_downloadable_url(url):
 def config_exists():
     '''config_exists - checks for the required s3 config options'''
     access_key = config.get('ckan.datagovsg_s3_resources.s3_aws_access_key_id')
-    secret_key = config.get('ckan.datagovsg_s3_resources.s3_aws_secret_access_key')
+    secret_key = config.get(
+        'ckan.datagovsg_s3_resources.s3_aws_secret_access_key')
     bucket_name = config.get('ckan.datagovsg_s3_resources.s3_bucket_name')
     url = config.get('ckan.datagovsg_s3_resources.s3_url_prefix')
 
