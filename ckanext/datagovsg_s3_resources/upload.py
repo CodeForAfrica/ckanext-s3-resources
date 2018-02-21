@@ -13,6 +13,7 @@ import mimetypes
 import collections
 import logging
 import datetime
+import uuid
 from dateutil import parser
 
 from slugify import slugify
@@ -75,9 +76,11 @@ def upload_resource_to_s3(context, resource):
     # Upload to S3
     pkg = toolkit.get_action('package_show')(context, {'id': resource['package_id']})
     timestamp = datetime.datetime.utcnow() # should match the assignment in the ResourceUpload class
+    # get resource name, if not known replace with random string
+    resource_name = resource.get('name', str(uuid.uuid1()))
     s3_filepath = (pkg.get('name')
                    + '/'
-                   + slugify(resource.get('name'), to_lower=True)
+                   + slugify(resource_name, to_lower=True)
                    + '-'
                    + timestamp.strftime("%Y-%m-%dT%H-%M-%SZ")
                    + extension)
