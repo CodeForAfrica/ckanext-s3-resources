@@ -28,6 +28,8 @@ class S3ResourcesPackageController(PackageController):
     '''
     def __init__(self):
         self.s3_url_prefix = config.get('ckan.datagovsg_s3_resources.s3_url_prefix')
+        if not self.s3_url_prefix.endswith('/'):
+            self.s3_url_prefix += '/'
 
 
     # download the whole dataset together with the metadata
@@ -56,6 +58,9 @@ class S3ResourcesPackageController(PackageController):
             logger.error("Error tracking package download - %s" % exception)
 
         redirect(self.s3_url_prefix
+                 + '/'
+                 + config.get('ckan.datagovsg_s3_resources.s3_bucket_name')
+                 + '/'
                  + pkg['name']
                  + '/'
                  + pkg['name']
@@ -110,9 +115,12 @@ class S3ResourcesPackageController(PackageController):
         # Redirect the request to the URL for the resource zip
         pkg = toolkit.get_action('package_show')(context, {'id': id})
         redirect(self.s3_url_prefix
-                 + pkg['name']
+                 + '/'
+                 + config.get('ckan.datagovsg_s3_resources.s3_bucket_name')
                  + '/'
                  + 'resources'
+                 + '/'
+                 + pkg['name']
                  + '/'
                  + slugify(rsc.get('name'), to_lower=True)
                  + '.zip')

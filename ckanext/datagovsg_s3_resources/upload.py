@@ -78,7 +78,9 @@ def upload_resource_to_s3(context, resource):
     timestamp = datetime.datetime.utcnow() # should match the assignment in the ResourceUpload class
     # get resource name, if not known replace with random string
     resource_name = resource.get('name', str(uuid.uuid1()))
-    s3_filepath = (pkg.get('name')
+    s3_filepath = ('resources'
+                   + '/'
+                   + pkg.get('name')
                    + '/'
                    + slugify(resource_name, to_lower=True)
                    + '-'
@@ -141,7 +143,10 @@ def upload_resource_to_s3(context, resource):
     # Modify fields in resource
     resource['upload'] = ''
     resource['url_type'] = 's3'
-    resource['url'] = config.get('ckan.datagovsg_s3_resources.s3_url_prefix') + s3_filepath
+    s3_url = config.get('ckan.datagovsg_s3_resources.s3_url_prefix')
+    if not s3_url.endswith('/'):
+        s3_url += '/'
+    resource['url'] = s3_url + config.get('ckan.datagovsg_s3_resources.s3_bucket_name') + '/' + s3_filepath
     update_timestamp(resource, timestamp)
 
 
@@ -167,7 +172,7 @@ def upload_resource_zipfile_to_s3(context, resource):
 
     # Initialize metadata
     metadata = toolkit.get_action(
-        'package_metadata_show')(data_dict={'id': pkg['id']})
+        'package_show')(data_dict={'id': pkg['id']})
     metadata_yaml_buff = StringIO.StringIO()
     metadata_yaml_buff.write(unicode("# Metadata for %s\r\n" % pkg[
                              "title"]).encode('ascii', 'ignore'))
@@ -213,9 +218,10 @@ def upload_resource_zipfile_to_s3(context, resource):
 
     # Upload the resource zip to S3
     resource_zip_archive.close()
-    resource_filename = (pkg.get('name')
+    resource_name = resource.get('name', str(uuid.uuid1()))
+    resource_filename = ('resources'
                          + '/'
-                         + 'resources'
+                         + pkg.get('name')
                          + '/'
                          + slugify(resource.get('name'), to_lower=True)
                          + '.zip')
@@ -256,7 +262,7 @@ def upload_package_zipfile_to_s3(context, pkg_dict):
 
     # Obtain package and package metadata
     metadata = toolkit.get_action(
-        'package_metadata_show')(data_dict={'id': pkg['id']})
+        'package_show')(data_dict={'id': pkg['id']})
 
     # Initialize package zip file
     package_buff = StringIO.StringIO()
