@@ -1,2 +1,28 @@
 
-bin/
+syntax: glob
+# generic
+*.pyc
+*.swp
+*.swo
+.DS_Store
+sandbox/*
+dist
+
+*.ini
+.noseids
+*~
+.idea
+.vscode
+
+# custom style
+ckan/public/base/less/custom.less
+
+# nosetest coverage output
+.coverage
+htmlcov/*
+
+# node.js
+node_modules/
+
+# docker
+contrib/docker/.env

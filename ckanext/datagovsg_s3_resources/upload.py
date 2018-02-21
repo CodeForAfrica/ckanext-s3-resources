@@ -22,7 +22,7 @@ import yaml
 import requests
 
 import paste.fileapp
-import ckan.plugins.toolkit as toolkit
+from ckan.plugins import toolkit
 import ckan.lib.uploader as uploader
 from ckan.common import request
 
@@ -77,8 +77,6 @@ def upload_resource_to_s3(context, resource):
     timestamp = datetime.datetime.utcnow() # should match the assignment in the ResourceUpload class
     s3_filepath = (pkg.get('name')
                    + '/'
-                   + 'resources'
-                   + '/'
                    + slugify(resource.get('name'), to_lower=True)
                    + '-'
                    + timestamp.strftime("%Y-%m-%dT%H-%M-%SZ")
@@ -97,7 +95,7 @@ def upload_resource_to_s3(context, resource):
         try:
             body = open(filepath, 'r')
         except OSError:
-            abort(404, _('Resource data not found'))
+            toolkit.abort(404, _('Resource data not found'))
     else:
         logger.info("File is downloadable from URL")
         try:
