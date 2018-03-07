@@ -1,8 +1,8 @@
-'''plugin.py
+"""plugin.py
 
 DatagovsgS3ResourcesPlugin
 Extends plugins.SingletonPlugin
-'''
+"""
 
 import logging
 import datetime
@@ -86,43 +86,12 @@ class DatagovsgS3ResourcesPlugin(plugins.SingletonPlugin):
                 logger = logging.getLogger(__name__)
                 logger.info("Resource %s from package %s is blacklisted and not uploaded to S3." % (resource['name'], resource['package_id']))
 
-    def after_create_or_update(self, context, resource):
-        '''Uploads resource zip file to S3
-        Done after create/update instead of before to ensure metadata is generated correctly'''
-        upload.upload_resource_zipfile_to_s3(context, resource)
-
-        # Remove 'resource_create_or_update' in context. See documentation in 'before_create_or_update'
-        # for more details
-        if 'resource_create_or_update' in context and upload.config_exists():
-            context.pop('resource_create_or_update')
-            pkg = plugins.toolkit.get_action('package_show')(data_dict={'id': resource['package_id']})
-            upload.upload_package_zipfile_to_s3(context, pkg)
 
     def before_create(self, context, resource):
         '''Runs before resource_create. Modifies resource destructively to put in the S3 URL'''
         self.before_create_or_update(context, resource)
 
-    def after_create(self, context, resource):
-        '''after_create - Runs after resource_create.'''
-        self.after_create_or_update(context, resource)
-
     def before_update(self, context, _, resource):
         '''Runs before resource_update. Modifies resource destructively to put in the S3 URL'''
         self.before_create_or_update(context, resource)
 
-    def after_update(self, context, resource):
-        '''after_update - Runs after resource_update.
-
-        Uploads resource zip to S3 and then manually pushes to datastore. Read documentation in
-        function for more details.'''
-        self.after_create_or_update(context, resource)
-
-        # Push data to datastore
-        # Unfortunately we have to do this here because datapusher currently runs on the
-        # IResourceUrlChange.notify hook which is getting passed as input the OLD resource
-        # When we update a resource, the datapusher trigger is receiving the old URL, and so
-        # we manually trigger the datapusher service after the resource has been updated.
-        if plugins.plugin_loaded('datastore'):
-            plugins.toolkit.c.pkg_dict = plugins.toolkit.get_action('datapusher_submit')(
-                None, {'resource_id': resource['id']}
-            )
